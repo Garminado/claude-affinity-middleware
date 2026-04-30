@@ -280,3 +280,6 @@ curl -X POST http://localhost:3000/v1/chat/completions \
 - [CLAUDE.md](./docs/claude-affinity-middleware/CLAUDE.md) — AI 助手项目上下文(改动前必读)
 - [AFFINITY.md](./docs/claude-affinity-middleware/AFFINITY.md) — 触发条件与 hash 字段的完整穷举规约
 - [TESTING.md](./docs/claude-affinity-middleware/TESTING.md) — REST API 测试用例集(覆盖所有决策分支 + 端到端验证)
+
+## 九、其他
+- [Linux.do](https://linux.do/)
