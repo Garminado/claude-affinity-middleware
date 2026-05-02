@@ -2,7 +2,110 @@
 
 > 让 new-api 把同一会话的连续多轮 Claude `/v1/messages` 请求稳定路由到同一个上游渠道。
 
-## 一、它解决什么问题
+## 一、接入方式(在你的 new-api fork 中启用)
+
+### 步骤 1:复制中间件文件
+
+把 `middleware/claude_affinity.go` 复制到你的 new-api 项目的 `middleware/` 目录下。**不需要修改任何字段**,文件是自包含的(除依赖项目自身的 `common`、`logger` 包外,只用 `gjson` 和标准库)。
+
+### 步骤 2:在路由注册中间件
+
+打开 `router/relay-router.go`,找到 `httpRouter` 这个 group 的定义(在 `relayV1Router.Group("")` 之后),在 `httpRouter.Use(middleware.Distribute())` **之前**插入一行:
+
+```go
+{
+    //http router
+    httpRouter := relayV1Router.Group("")
+    httpRouter.Use(middleware.ClaudeAffinityHash())  // 新增:必须先于 Distribute
+    httpRouter.Use(middleware.Distribute())
+
+    // claude related routes
+    httpRouter.POST("/messages", func(c *gin.Context) {
+        controller.Relay(c, types.RelayFormatClaude)
+    })
+    // ... 其他路由保持原样
+}
+```
+
+**为什么必须在 `Distribute()` 之前**:gin 的中间件链顺序是先注册先执行。Distribute 是渠道选择中间件,会读 context_string 做亲和路由。如果中间件在 Distribute 之后才执行,Distribute 那时 context 里还没有 key,会退化成随机选渠道,整个改造失效。
+
+**为什么挂在 group 级别而不是 `/messages` 路由级别**:gin 中 group middleware 严格先于 route middleware,如果挂在路由级别会更晚执行 —— 错过 Distribute 的读取窗口。group 级 + 中间件内部 path 过滤,是唯一正确组合。
+
+### 步骤 3:在 new-api 后台配置渠道亲和性规则
+
+后台 → "渠道亲和性" → 新建规则:
+
+| 字段    | 取值 |
+|-------|------|
+| 模型正则  | ^claude-.*$ |
+| 路径正则  | /v1/messages |
+| Key来源 | `context_string` |
+| Key   | `claude_affinity_key` |
+
+Key 字符串必须**严格等于** `claude_affinity_key`(中间件内部硬编码)。
+
+**注意** ：建议<u>关闭</u>**失败后不重试**选项且将**重试次数**设置**>=1**，若<u>打开</u>**失败后不重试**，若渠道一直未恢复，在亲和性键**过期前**会一直命中同一渠道而导致请求失败。
+
+### 步骤 4:重新编译启动
+
+```bash
+go build ./...
+./new-api --log-dir /var/log/new-api  # 启用文件日志,便于运维查证
+```
+
+## 二、验证
+
+### 编译验证
+
+```bash
+go build ./middleware/... ./router/...
+go vet ./middleware/... ./router/...
+```
+
+### 命中验证
+
+```bash
+# 触发 strict tier(thinking 启用)
+curl -X POST http://localhost:3000/v1/messages \
+  -H "Authorization: Bearer <你的 sk-xxx>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "claude-3-7-sonnet-20250219",
+    "max_tokens": 1024,
+    "thinking": {"type": "enabled", "budget_tokens": 1024},
+    "messages": [{"role": "user", "content": "Hi"}]
+  }'
+```
+
+预期日志(同时输出到 stdout 和 `<log-dir>/oneapi-<ts>.log`):
+
+```text
+[INFO] 2026/04/30 - 14:23:12 | abc-req-id | [claude_affinity] hit tier=strict triggers=[thinking] key=4a8f9c1d2e3b6071 salted=true token_id=42 model=claude-3-7-sonnet-20250219 body_bytes=4827 elapsed=14.2µs
+```
+
+连续发 3 次相同请求,所有 `key=` 字段应完全相同,且 new-api 选中的 channel_id 也应保持一致。
+
+### 未触发验证
+
+```bash
+# 普通 chat,不带 thinking/tools/cache_control
+curl -X POST http://localhost:3000/v1/messages \
+  -d '{"model":"claude-3-5-sonnet-20241022","max_tokens":100,
+       "messages":[{"role":"user","content":"hello"}]}'
+```
+
+预期:**没有** `[claude_affinity] hit` 日志,Distribute 走原有权重/随机选择。
+
+### OpenAI 格式不受影响验证
+
+```bash
+curl -X POST http://localhost:3000/v1/chat/completions \
+  -d '{"model":"gpt-4","messages":[...]}'
+```
+
+预期:**没有** `[claude_affinity]` 日志(中间件因 path 不以 `/messages` 结尾立即放行,不读 body)。
+
+## 三、它解决什么问题
 
 new-api 在不做特殊处理时,会把同一客户的连续两次 `/v1/messages` 请求按权重/随机分配到不同的 Claude 上游渠道。这会触发以下 Claude/Bedrock 严重错误,以及 prompt cache 大面积失效:
 
@@ -16,7 +119,7 @@ new-api 内置的"渠道亲和性"机制只支持三种 key 来源:`gjson`、`co
 
 本中间件填上的就是这个缺口:**解析 body → 判断是否需要亲和绑定 → 算出稳定 hash → 写入 gin Context 一个固定 key**。后续 new-api 自带的渠道选择逻辑用 `context_string` 来源读这个 key,自动按一致性哈希落桶到同一渠道。
 
-## 二、工作原理
+## 四、工作原理
 
 ```
 POST /v1/messages
@@ -78,107 +181,6 @@ finalKey = SHA256("secret" ‖ \x00 ‖ token_id_str ‖ \x01 ‖ "inner" ‖ \x
 - 同一 token 多轮请求 → finalKey 相同 → 同一渠道(达成会话亲和)
 - 不同 token 相同 body → finalKey 不同 → 路由分散(达成 token 隔离)
 - token_id 是 int,不会泄漏 API key 明文到日志
-
-## 三、接入方式(在你的 new-api fork 中启用)
-
-### 步骤 1:复制中间件文件
-
-把 `middleware/claude_affinity.go` 复制到你的 new-api 项目的 `middleware/` 目录下。**不需要修改任何字段**,文件是自包含的(除依赖项目自身的 `common`、`logger` 包外,只用 `gjson` 和标准库)。
-
-### 步骤 2:在路由注册中间件
-
-打开 `router/relay-router.go`,找到 `httpRouter` 这个 group 的定义(在 `relayV1Router.Group("")` 之后),在 `httpRouter.Use(middleware.Distribute())` **之前**插入一行:
-
-```go
-{
-    //http router
-    httpRouter := relayV1Router.Group("")
-    httpRouter.Use(middleware.ClaudeAffinityHash())  // 新增:必须先于 Distribute
-    httpRouter.Use(middleware.Distribute())
-
-    // claude related routes
-    httpRouter.POST("/messages", func(c *gin.Context) {
-        controller.Relay(c, types.RelayFormatClaude)
-    })
-    // ... 其他路由保持原样
-}
-```
-
-**为什么必须在 `Distribute()` 之前**:gin 的中间件链顺序是先注册先执行。Distribute 是渠道选择中间件,会读 context_string 做亲和路由。如果中间件在 Distribute 之后才执行,Distribute 那时 context 里还没有 key,会退化成随机选渠道,整个改造失效。
-
-**为什么挂在 group 级别而不是 `/messages` 路由级别**:gin 中 group middleware 严格先于 route middleware,如果挂在路由级别会更晚执行 —— 错过 Distribute 的读取窗口。group 级 + 中间件内部 path 过滤,是唯一正确组合。
-
-### 步骤 3:在 new-api 后台配置渠道亲和性规则
-
-后台 → "渠道亲和性" → 新建规则:
-
-| 字段 | 取值 |
-|------|------|
-| 来源类型 | `context_string` |
-| Key | `claude_affinity_key` |
-| 作用模型 | 所有 Claude 模型(claude-3-5-sonnet / claude-3-7-sonnet / claude-opus-4 等) |
-| 作用分组 | 按需配置 |
-
-Key 字符串必须**严格等于** `claude_affinity_key`(中间件内部硬编码)。
-
-### 步骤 4:重新编译启动
-
-```bash
-go build ./...
-./new-api --log-dir /var/log/new-api  # 启用文件日志,便于运维查证
-```
-
-## 四、验证
-
-### 编译验证
-
-```bash
-go build ./middleware/... ./router/...
-go vet ./middleware/... ./router/...
-```
-
-### 命中验证
-
-```bash
-# 触发 strict tier(thinking 启用)
-curl -X POST http://localhost:3000/v1/messages \
-  -H "Authorization: Bearer <你的 sk-xxx>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "claude-3-7-sonnet-20250219",
-    "max_tokens": 1024,
-    "thinking": {"type": "enabled", "budget_tokens": 1024},
-    "messages": [{"role": "user", "content": "Hi"}]
-  }'
-```
-
-预期日志(同时输出到 stdout 和 `<log-dir>/oneapi-<ts>.log`):
-
-```text
-[INFO] 2026/04/30 - 14:23:12 | abc-req-id | [claude_affinity] hit tier=strict triggers=[thinking] key=4a8f9c1d2e3b6071 salted=true token_id=42 model=claude-3-7-sonnet-20250219 body_bytes=4827 elapsed=14.2µs
-```
-
-连续发 3 次相同请求,所有 `key=` 字段应完全相同,且 new-api 选中的 channel_id 也应保持一致。
-
-### 未触发验证
-
-```bash
-# 普通 chat,不带 thinking/tools/cache_control
-curl -X POST http://localhost:3000/v1/messages \
-  -d '{"model":"claude-3-5-sonnet-20241022","max_tokens":100,
-       "messages":[{"role":"user","content":"hello"}]}'
-```
-
-预期:**没有** `[claude_affinity] hit` 日志,Distribute 走原有权重/随机选择。
-
-### OpenAI 格式不受影响验证
-
-```bash
-curl -X POST http://localhost:3000/v1/chat/completions \
-  -d '{"model":"gpt-4","messages":[...]}'
-```
-
-预期:**没有** `[claude_affinity]` 日志(中间件因 path 不以 `/messages` 结尾立即放行,不读 body)。
 
 ## 五、配置常量速查
 
