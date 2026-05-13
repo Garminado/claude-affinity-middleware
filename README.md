@@ -70,7 +70,7 @@ curl -X POST http://localhost:3000/v1/messages \
   -H "Authorization: Bearer <你的 sk-xxx>" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-3-7-sonnet-20250219",
+    "model": "claude-opus-4-6",
     "max_tokens": 1024,
     "thinking": {"type": "enabled", "budget_tokens": 1024},
     "messages": [{"role": "user", "content": "Hi"}]
@@ -80,7 +80,7 @@ curl -X POST http://localhost:3000/v1/messages \
 预期日志(同时输出到 stdout 和 `<log-dir>/oneapi-<ts>.log`):
 
 ```text
-[INFO] 2026/04/30 - 14:23:12 | abc-req-id | [claude_affinity] hit tier=strict triggers=[thinking] key=4a8f9c1d2e3b6071 salted=true token_id=42 model=claude-3-7-sonnet-20250219 body_bytes=4827 elapsed=14.2µs
+[INFO] 2026/04/30 - 14:23:12 | abc-req-id | [claude_affinity] hit tier=strict triggers=[thinking] key=4a8f9c1d2e3b6071 salted=true token_id=42 model=claude-opus-4-6 body_bytes=4827 elapsed=14.2µs
 ```
 
 连续发 3 次相同请求,所有 `key=` 字段应完全相同,且 new-api 选中的 channel_id 也应保持一致。
@@ -90,7 +90,7 @@ curl -X POST http://localhost:3000/v1/messages \
 ```bash
 # 普通 chat,不带 thinking/tools/cache_control
 curl -X POST http://localhost:3000/v1/messages \
-  -d '{"model":"claude-3-5-sonnet-20241022","max_tokens":100,
+  -d '{"model":"claude-opus-4-6","max_tokens":100,
        "messages":[{"role":"user","content":"hello"}]}'
 ```
 
@@ -100,7 +100,7 @@ curl -X POST http://localhost:3000/v1/messages \
 
 ```bash
 curl -X POST http://localhost:3000/v1/chat/completions \
-  -d '{"model":"gpt-4","messages":[...]}'
+  -d '{"model":"gpt-5.5-2026-04-23","messages":[...]}'
 ```
 
 预期:**没有** `[claude_affinity]` 日志(中间件因 path 不以 `/messages` 结尾立即放行,不读 body)。
@@ -284,4 +284,4 @@ finalKey = SHA256("secret" ‖ \x00 ‖ token_id_str ‖ \x01 ‖ "inner" ‖ \x
 - [TESTING.md](./docs/claude-affinity-middleware/TESTING.md) — REST API 测试用例集(覆盖所有决策分支 + 端到端验证)
 
 ## 九、其他
-- [Linux.do](https://linux.do/)
+- [Linux.do](https://linux.do/t/topic/2089861)
