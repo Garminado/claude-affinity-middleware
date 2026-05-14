@@ -75,7 +75,7 @@ curl -X POST "$BASE_URL/v1/chat/completions" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "gpt-4",
+    "model": "gpt-5.5-2026-04-23",
     "messages": [{"role":"user","content":"hello"}]
   }'
 ```
@@ -97,7 +97,7 @@ curl -X POST "$BASE_URL/v1/chat/completions" \
 curl -X POST "$BASE_URL/v1/embeddings" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"model":"text-embedding-3-small","input":"hello"}'
+  -d '{"model":"gpt-5.5-2026-04-23","input":"hello"}'
 ```
 
 **预期日志**:同 P0-2,DEBUG 级 `skip ... reason=not_messages_endpoint`。
@@ -137,7 +137,7 @@ curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-3-5-sonnet-20241022",
+    "model": "claude-opus-4-6",
     "max_tokens": 100,
     "metadata": {"user_id": "alice@example.com"},
     "thinking": {"type": "enabled", "budget_tokens": 1024},
@@ -147,7 +147,7 @@ curl -X POST "$BASE_URL/v1/messages" \
 
 **预期日志**(DEBUG):
 ```
-[DEBUG] ... [claude_affinity] miss reason=metadata_user_id model=claude-3-5-sonnet-20241022 body_bytes=... elapsed=...
+[DEBUG] ... [claude_affinity] miss reason=metadata_user_id model=claude-opus-4-6 body_bytes=... elapsed=...
 ```
 
 **关键点**:即使 body 同时带了 `thinking`(本应触发 strict),`metadata.user_id` 优先级**最高**,直接短路。这是 Claude Code CLI 用户的预期行为。
@@ -161,7 +161,7 @@ curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-3-5-sonnet-20241022",
+    "model": "claude-opus-4-6",
     "max_tokens": 100,
     "metadata": {"user_id": ""},
     "messages": [{"role":"user","content":"hello"}]
@@ -181,7 +181,7 @@ curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-3-5-sonnet-20241022",
+    "model": "claude-opus-4-6",
     "max_tokens": 100,
     "metadata": {"trace_id": "xxx"},
     "thinking": {"type": "enabled", "budget_tokens": 1024},
@@ -205,7 +205,7 @@ curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-3-5-sonnet-20241022",
+    "model": "claude-opus-4-6",
     "max_tokens": 100,
     "messages": [{"role":"user","content":"hello world"}]
   }'
@@ -213,7 +213,7 @@ curl -X POST "$BASE_URL/v1/messages" \
 
 **预期日志**(DEBUG):
 ```
-[DEBUG] ... [claude_affinity] miss reason=no_trigger_matched model=claude-3-5-sonnet-20241022 body_bytes=... elapsed=...
+[DEBUG] ... [claude_affinity] miss reason=no_trigger_matched model=claude-opus-4-6 body_bytes=... elapsed=...
 ```
 
 **预期行为**:Distribute 走原本的权重/随机选择(连续多次发同样请求,channel_id 应当分散到多个渠道)。
@@ -229,7 +229,7 @@ curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-3-5-sonnet-20241022",
+    "model": "claude-opus-4-6",
     "max_tokens": 100,
     "thinking": {"type": "enabled", "budget_tokens": 1024},
     "messages": [{
@@ -243,7 +243,7 @@ curl -X POST "$BASE_URL/v1/messages" \
 
 **预期日志**(DEBUG):
 ```
-[DEBUG] ... [claude_affinity] miss reason=no_first_user_text model=claude-3-5-sonnet-20241022 body_bytes=... elapsed=...
+[DEBUG] ... [claude_affinity] miss reason=no_first_user_text model=claude-opus-4-6 body_bytes=... elapsed=...
 ```
 
 **预期行为**:走原有权重路由。strict tier 强制要求 first_user 有可哈希的文本,否则降级跳过。
@@ -259,7 +259,7 @@ curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-3-5-sonnet-20241022",
+    "model": "claude-opus-4-6",
     "max_tokens": 100,
     "system": [{"type": "text", "text": "", "cache_control": {"type": "ephemeral"}}],
     "messages": [{"role":"user","content":"hello"}]
@@ -268,7 +268,7 @@ curl -X POST "$BASE_URL/v1/messages" \
 
 **预期日志**(DEBUG):
 ```
-[DEBUG] ... [claude_affinity] miss reason=loose_skipped_empty_prefix model=claude-3-5-sonnet-20241022 body_bytes=... elapsed=...
+[DEBUG] ... [claude_affinity] miss reason=loose_skipped_empty_prefix model=claude-opus-4-6 body_bytes=... elapsed=...
 ```
 
 **预期行为**:走原有权重路由。**关键不变量**:防止"hash 退化为常量,所有此类请求挤到同一个渠道"。
@@ -312,7 +312,7 @@ curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-3-7-sonnet-20250219",
+    "model": "claude-opus-4-6",
     "max_tokens": 1024,
     "thinking": {"type": "enabled", "budget_tokens": 1024},
     "messages": [{"role":"user","content":"What is 2+2?"}]
@@ -321,7 +321,7 @@ curl -X POST "$BASE_URL/v1/messages" \
 
 **预期日志**:
 ```
-[INFO]  ... [claude_affinity] hit tier=strict triggers=[thinking] key=<16字符> salted=true token_id=<int> model=claude-3-7-sonnet-20250219 body_bytes=... elapsed=...
+[INFO]  ... [claude_affinity] hit tier=strict triggers=[thinking] key=<16字符> salted=true token_id=<int> model=claude-opus-4-6 body_bytes=... elapsed=...
 ```
 
 ---
@@ -333,7 +333,7 @@ curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-3-7-sonnet-20250219",
+    "model": "claude-opus-4-6",
     "max_tokens": 1024,
     "thinking": {"type": "disabled"},
     "messages": [{"role":"user","content":"hello"}]
@@ -353,7 +353,7 @@ curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-3-5-sonnet-20241022",
+    "model": "claude-opus-4-6",
     "max_tokens": 1024,
     "tools": [{
       "name": "get_weather",
@@ -380,7 +380,7 @@ curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-3-7-sonnet-20250219",
+    "model": "claude-opus-4-6",
     "max_tokens": 1024,
     "thinking": {"type": "enabled", "budget_tokens": 1024},
     "messages": [
@@ -409,7 +409,7 @@ curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-3-5-sonnet-20241022",
+    "model": "claude-opus-4-6",
     "max_tokens": 1024,
     "tools": [{
       "name": "get_weather",
@@ -443,7 +443,7 @@ curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-3-5-sonnet-20241022",
+    "model": "claude-opus-4-6",
     "max_tokens": 1024,
     "messages": [{
       "role": "user",
@@ -472,7 +472,7 @@ curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-3-5-sonnet-20241022",
+    "model": "claude-opus-4-6",
     "max_tokens": 1024,
     "tools": [{
       "name": "get_weather",
@@ -501,7 +501,7 @@ curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-3-5-sonnet-20241022",
+    "model": "claude-opus-4-6",
     "max_tokens": 1024,
     "system": [
       {"type": "text", "text": "You are a helpful assistant.", "cache_control": {"type":"ephemeral"}}
@@ -529,14 +529,14 @@ curl -X POST "$BASE_URL/v1/messages" \
 # 请求 1
 curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"model":"claude-3-5-sonnet-20241022","max_tokens":100,
+  -d '{"model":"claude-opus-4-6","max_tokens":100,
        "system":[{"type":"text","text":"Helper.","cache_control":{"type":"ephemeral"}}],
        "messages":[{"role":"user","content":"question 1"}]}'
 
 # 请求 2(只改 first_user)
 curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"model":"claude-3-5-sonnet-20241022","max_tokens":100,
+  -d '{"model":"claude-opus-4-6","max_tokens":100,
        "system":[{"type":"text","text":"Helper.","cache_control":{"type":"ephemeral"}}],
        "messages":[{"role":"user","content":"question 2 totally different"}]}'
 ```
@@ -562,7 +562,7 @@ curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-3-7-sonnet-20250219",
+    "model": "claude-opus-4-6",
     "max_tokens": 1024,
     "thinking": {"type": "enabled", "budget_tokens": 1024},
     "system": [{"type":"text","text":"Helper","cache_control":{"type":"ephemeral"}}],
@@ -585,7 +585,7 @@ curl -X POST "$BASE_URL/v1/messages" \
 curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-3-7-sonnet-20250219",
+    "model": "claude-opus-4-6",
     "max_tokens": 1024,
     "thinking": {"type": "enabled", "budget_tokens": 1024},
     "messages": [{"role":"user","content":"What is 2+2?"}]
@@ -595,7 +595,7 @@ curl -X POST "$BASE_URL/v1/messages" \
 curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-3-7-sonnet-20250219",
+    "model": "claude-opus-4-6",
     "max_tokens": 1024,
     "thinking": {"type": "enabled", "budget_tokens": 1024},
     "messages": [
@@ -612,7 +612,7 @@ curl -X POST "$BASE_URL/v1/messages" \
 curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-3-7-sonnet-20250219",
+    "model": "claude-opus-4-6",
     "max_tokens": 1024,
     "thinking": {"type": "enabled", "budget_tokens": 1024},
     "messages": [
@@ -646,7 +646,7 @@ grep '\[claude_affinity\] hit' $LOG_FILE | tail -3 | awk -F'key=' '{print $2}' |
 curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{
-    "model":"claude-3-5-sonnet-20241022","max_tokens":100,
+    "model":"claude-opus-4-6","max_tokens":100,
     "tools":[
       {"name":"get_weather","description":"weather","input_schema":{"type":"object"}},
       {"name":"get_time","description":"time","input_schema":{"type":"object"}}
@@ -658,7 +658,7 @@ curl -X POST "$BASE_URL/v1/messages" \
 curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{
-    "model":"claude-3-5-sonnet-20241022","max_tokens":100,
+    "model":"claude-opus-4-6","max_tokens":100,
     "tools":[
       {"name":"get_time","description":"time","input_schema":{"type":"object"}},
       {"name":"get_weather","description":"weather","input_schema":{"type":"object"}}
@@ -680,7 +680,7 @@ curl -X POST "$BASE_URL/v1/messages" \
 curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{
-    "model":"claude-3-5-sonnet-20241022","max_tokens":100,
+    "model":"claude-opus-4-6","max_tokens":100,
     "tools":[{"name":"t","description":"d","input_schema":{"type":"object"}}],
     "messages":[{"role":"user","content":"hi"}]
   }'
@@ -689,7 +689,7 @@ curl -X POST "$BASE_URL/v1/messages" \
 curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{
-    "model":"claude-3-5-sonnet-20241022","max_tokens":100,
+    "model":"claude-opus-4-6","max_tokens":100,
     "tools":[{"name":"t","description":"d","input_schema":{"type":"object"},"cache_control":{"type":"ephemeral"}}],
     "messages":[{"role":"user","content":"hi"}]
   }'
@@ -708,7 +708,7 @@ curl -X POST "$BASE_URL/v1/messages" \
 curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{
-    "model":"claude-3-7-sonnet-20250219","max_tokens":100,
+    "model":"claude-opus-4-6","max_tokens":100,
     "thinking":{"type":"enabled","budget_tokens":1024},
     "messages":[{"role":"user","content":"question A"}]
   }'
@@ -717,7 +717,7 @@ curl -X POST "$BASE_URL/v1/messages" \
 curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{
-    "model":"claude-3-7-sonnet-20250219","max_tokens":100,
+    "model":"claude-opus-4-6","max_tokens":100,
     "thinking":{"type":"enabled","budget_tokens":1024},
     "messages":[{"role":"user","content":"question B"}]
   }'
@@ -739,7 +739,7 @@ for i in 1 2 3; do
   curl -X POST "$BASE_URL/v1/messages" \
     -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
     -d '{
-      "model":"claude-3-7-sonnet-20250219","max_tokens":100,
+      "model":"claude-opus-4-6","max_tokens":100,
       "thinking":{"type":"enabled","budget_tokens":1024},
       "messages":[{"role":"user","content":"hi"}]
     }'
@@ -759,7 +759,7 @@ done
 curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{
-    "model":"claude-3-7-sonnet-20250219","max_tokens":100,
+    "model":"claude-opus-4-6","max_tokens":100,
     "thinking":{"type":"enabled","budget_tokens":1024},
     "messages":[{"role":"user","content":"identical body"}]
   }'
@@ -768,7 +768,7 @@ curl -X POST "$BASE_URL/v1/messages" \
 curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN2" -H "Content-Type: application/json" \
   -d '{
-    "model":"claude-3-7-sonnet-20250219","max_tokens":100,
+    "model":"claude-opus-4-6","max_tokens":100,
     "thinking":{"type":"enabled","budget_tokens":1024},
     "messages":[{"role":"user","content":"identical body"}]
   }'
@@ -808,7 +808,7 @@ grep '\[claude_affinity\] hit' $LOG_FILE | tail -2
 
 **前提**:
 - 你的 new-api 至少有 ≥2 个 Claude 渠道(channel_id 不同)
-- 在后台已配置渠道亲和性规则(类型 `context_string`,Key `claude_affinity_key`,作用模型包含 `claude-3-7-sonnet-20250219`)
+- 在后台已配置渠道亲和性规则(类型 `context_string`,Key `claude_affinity_key`,作用模型包含 `claude-opus-4-6`)
 
 **步骤**:
 
@@ -818,7 +818,7 @@ for i in 1 2 3 4 5; do
   curl -X POST "$BASE_URL/v1/messages" \
     -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
     -d '{
-      "model":"claude-3-7-sonnet-20250219","max_tokens":50,
+      "model":"claude-opus-4-6","max_tokens":50,
       "thinking":{"type":"enabled","budget_tokens":1024},
       "messages":[{"role":"user","content":"E2E test"}]
     }'
@@ -845,7 +845,7 @@ for i in $(seq 1 10); do
   curl -X POST "$BASE_URL/v1/messages" \
     -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
     -d '{
-      "model":"claude-3-5-sonnet-20241022","max_tokens":50,
+      "model":"claude-opus-4-6","max_tokens":50,
       "messages":[{"role":"user","content":"hello round '"$i"'"}]
     }'
   sleep 1
@@ -866,7 +866,7 @@ for i in 1 2 3 4 5; do
   curl -X POST "$BASE_URL/v1/messages" \
     -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
     -d '{
-      "model":"claude-3-7-sonnet-20250219","max_tokens":50,
+      "model":"claude-opus-4-6","max_tokens":50,
       "thinking":{"type":"enabled","budget_tokens":1024},
       "messages":[{"role":"user","content":"shared body"}]
     }'
@@ -877,7 +877,7 @@ for i in 1 2 3 4 5; do
   curl -X POST "$BASE_URL/v1/messages" \
     -H "Authorization: Bearer $TOKEN2" -H "Content-Type: application/json" \
     -d '{
-      "model":"claude-3-7-sonnet-20250219","max_tokens":50,
+      "model":"claude-opus-4-6","max_tokens":50,
       "thinking":{"type":"enabled","budget_tokens":1024},
       "messages":[{"role":"user","content":"shared body"}]
     }'
@@ -899,7 +899,7 @@ done
 
 ```bash
 # 生成一个 ~120MiB 的 body
-python3 -c "import json; print(json.dumps({'model':'claude-3-5-sonnet-20241022','max_tokens':100,'thinking':{'type':'enabled','budget_tokens':1024},'messages':[{'role':'user','content':'A'*(120*1024*1024)}]}))" > /tmp/big120.json
+python3 -c "import json; print(json.dumps({'model':'claude-opus-4-6','max_tokens':100,'thinking':{'type':'enabled','budget_tokens':1024},'messages':[{'role':'user','content':'A'*(120*1024*1024)}]}))" > /tmp/big120.json
 
 curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
@@ -915,7 +915,7 @@ curl -X POST "$BASE_URL/v1/messages" \
 **目的**:验证 first_user 几兆文本也能稳定 hash。
 
 ```bash
-python3 -c "import json; print(json.dumps({'model':'claude-3-5-sonnet-20241022','max_tokens':100,'thinking':{'type':'enabled','budget_tokens':1024},'messages':[{'role':'user','content':'A'*(2*1024*1024)}]}))" > /tmp/big2m.json
+python3 -c "import json; print(json.dumps({'model':'claude-opus-4-6','max_tokens':100,'thinking':{'type':'enabled','budget_tokens':1024},'messages':[{'role':'user','content':'A'*(2*1024*1024)}]}))" > /tmp/big2m.json
 
 curl -X POST "$BASE_URL/v1/messages" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
@@ -936,7 +936,7 @@ for i in $(seq 1 10); do
   (curl -X POST "$BASE_URL/v1/messages" \
     -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
     -d '{
-      "model":"claude-3-7-sonnet-20250219","max_tokens":50,
+      "model":"claude-opus-4-6","max_tokens":50,
       "thinking":{"type":"enabled","budget_tokens":1024},
       "messages":[{"role":"user","content":"concurrent"}]
     }' &)
@@ -1005,8 +1005,8 @@ last_key() {
 # 用例 STAB-1 自动化
 echo "=== STAB-1: 多轮 hash 稳定 ==="
 for body in \
-  '{"model":"claude-3-7-sonnet-20250219","max_tokens":50,"thinking":{"type":"enabled","budget_tokens":1024},"messages":[{"role":"user","content":"hi"}]}' \
-  '{"model":"claude-3-7-sonnet-20250219","max_tokens":50,"thinking":{"type":"enabled","budget_tokens":1024},"messages":[{"role":"user","content":"hi"},{"role":"assistant","content":[{"type":"text","text":"hello back"}]},{"role":"user","content":"r2"}]}'
+  '{"model":"claude-opus-4-6","max_tokens":50,"thinking":{"type":"enabled","budget_tokens":1024},"messages":[{"role":"user","content":"hi"}]}' \
+  '{"model":"claude-opus-4-6","max_tokens":50,"thinking":{"type":"enabled","budget_tokens":1024},"messages":[{"role":"user","content":"hi"},{"role":"assistant","content":[{"type":"text","text":"hello back"}]},{"role":"user","content":"r2"}]}'
 do
   curl -s -X POST "$BASE_URL/v1/messages" \
     -H "Authorization: Bearer $TOKEN" \

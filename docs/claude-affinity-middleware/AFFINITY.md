@@ -172,19 +172,19 @@ finalKey =
 [WARN]  2026/04/30 - 14:25:30 | stu-901-req-id | [claude_affinity] get_body_storage_failed path=/v1/messages content_length=156237824 err=request body exceeds 128 MB
 
 # S1 metadata.user_id 短路(DEBUG)
-[DEBUG] 2026/04/30 - 14:24:01 | jkl-012-req-id | [claude_affinity] miss reason=metadata_user_id model=claude-3-5-sonnet-20241022 body_bytes=1203 elapsed=6.2µs
+[DEBUG] 2026/04/30 - 14:24:01 | jkl-012-req-id | [claude_affinity] miss reason=metadata_user_id model=claude-opus-4-6 body_bytes=1203 elapsed=6.2µs
 
 # S2 普通 chat(DEBUG)
-[DEBUG] 2026/04/30 - 14:24:05 | pqr-678-req-id | [claude_affinity] miss reason=no_trigger_matched model=claude-3-5-sonnet-20241022 body_bytes=815 elapsed=5.1µs
+[DEBUG] 2026/04/30 - 14:24:05 | pqr-678-req-id | [claude_affinity] miss reason=no_trigger_matched model=claude-opus-4-6 body_bytes=815 elapsed=5.1µs
 
 # A1/A3 strict 命中(thinking)
-[INFO]  2026/04/30 - 14:23:12 | abc-123-req-id | [claude_affinity] hit tier=strict triggers=[thinking] key=4a8f9c1d2e3b6071 salted=true token_id=42 model=claude-3-7-sonnet-20250219 body_bytes=4827 elapsed=14.2µs
+[INFO]  2026/04/30 - 14:23:12 | abc-123-req-id | [claude_affinity] hit tier=strict triggers=[thinking] key=4a8f9c1d2e3b6071 salted=true token_id=42 model=claude-opus-4-6 body_bytes=4827 elapsed=14.2µs
 
 # A2 strict 命中(tools 顶层)
-[INFO]  2026/04/30 - 14:23:15 | def-456-req-id | [claude_affinity] hit tier=strict triggers=[tool] key=7d2e891f0a4c5b63 salted=true token_id=42 model=claude-3-7-sonnet-20250219 body_bytes=5102 elapsed=11.8µs
+[INFO]  2026/04/30 - 14:23:15 | def-456-req-id | [claude_affinity] hit tier=strict triggers=[tool] key=7d2e891f0a4c5b63 salted=true token_id=42 model=claude-opus-4-6 body_bytes=5102 elapsed=11.8µs
 
 # B1 loose 命中(system cache)
-[INFO]  2026/04/30 - 14:23:18 | ghi-789-req-id | [claude_affinity] hit tier=loose triggers=[cache] key=9c1f482e7a0d3b65 salted=true token_id=42 model=claude-3-5-sonnet-20241022 body_bytes=2841 elapsed=8.7µs
+[INFO]  2026/04/30 - 14:23:18 | ghi-789-req-id | [claude_affinity] hit tier=loose triggers=[cache] key=9c1f482e7a0d3b65 salted=true token_id=42 model=claude-opus-4-6 body_bytes=2841 elapsed=8.7µs
 
 # E2 panic 恢复
 [ERR]   2026/04/30 - 14:26:11 | vwx-234-req-id | [claude_affinity] panic recovered path=/v1/messages panic=runtime error: index out of range
